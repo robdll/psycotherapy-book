@@ -1,26 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --navy-950: #080c12;
+  --navy-900: #0f1419;
+  --navy-800: #18202c;
+  --parchment: #f4f1ea;
+  --parchment-ink: #2c2824;
+  --gold: #c5a059;
+  --gold-hover: #d4b06e;
+  --gold-dim: #8a7347;
+  --gold-border: rgba(197, 160, 89, 0.35);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-parchment: var(--parchment);
+  --color-parchment-ink: var(--parchment-ink);
+  --color-gold: var(--gold);
+  --color-gold-hover: var(--gold-hover);
+  --color-gold-dim: var(--gold-dim);
+  --font-sans: var(--font-source), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), "Georgia", ui-serif, serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--navy-900);
+  background-image:
+    radial-gradient(circle at 18% 8%, rgba(197, 160, 89, 0.08) 0%, transparent 42%),
+    radial-gradient(circle at 82% 72%, rgba(197, 160, 89, 0.05) 0%, transparent 38%);
+  color: var(--parchment);
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-display);
 }

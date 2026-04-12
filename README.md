@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Psychotherapy booking (PIX + Google Calendar + Meet)
 
-## Getting Started
+**Path B** from the product plan: a custom site with confirmation after **PIX** payment (Mercado Pago), availability rules (weekdays + blackouts), and **Google Calendar** integration (free/busy checks, event creation with **Google Meet** and e-mail invites).
 
-First, run the development server:
+## Requirements
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 20+
+- **MongoDB** — local via Docker (included) or [MongoDB Atlas](https://www.mongodb.com/atlas) in production
+- **Mercado Pago** account (production or test access token)
+- **Google Cloud** project with OAuth and **Google Calendar API** enabled
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Quick setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Copy environment variables:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   cp .env.example .env
+   ```
 
-## Learn More
+2. Set `DATABASE_URL` in `.env`:
 
-To learn more about Next.js, take a look at the following resources:
+   - **Local (Docker):** after `npm run docker:up`, use  
+     `mongodb://127.0.0.1:27018/psicology_booking` (as in `.env.example`; host port **27018** avoids clashes with another service on **27017**).
+   - **Atlas:** paste your cluster connection string (Drivers mode), including user, password, and database name.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. Also set: `NEXT_PUBLIC_APP_URL`, `SESSION_SECRET`, `ADMIN_PASSWORD`, Google and Mercado Pago credentials (see `.env.example`).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. Install dependencies and sync the schema to MongoDB:
 
-## Deploy on Vercel
+   ```bash
+   npm install
+   npm run docker:up
+   npm run db:push
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. Run the app:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm run dev
+   ```
+
+6. Open `/admin`, sign in, configure availability, add blackouts, and **Connect Google account** (first time should return a `refresh_token` with `prompt=consent`).
+
+7. In Mercado Pago, register the webhook URL:  
+   `{NEXT_PUBLIC_APP_URL}/api/webhooks/mercadopago`  
+   (payment notifications).
+
+### Useful commands
+
+| Command | Description |
+|--------|-------------|
+| `npm run docker:up` | Start local MongoDB (host **27018** → container 27017) |
+| `npm run docker:down` | Stop containers |
+| `npm run db:push` | Apply `schema.prisma` to MongoDB (dev / prototyping) |
+
+## Google Calendar and Meet
+
+- **Personal Gmail or Google Workspace:** the API creates events with Meet on the `primary` calendar when the account supports Meet.
+- Scope: `https://www.googleapis.com/auth/calendar`.
+- Google Cloud: **Web** OAuth client, redirect URI: `{NEXT_PUBLIC_APP_URL}/api/auth/google/callback`.
+
+## Payment flow
+
+1. Client picks a slot on `/book` → `POST /api/bookings` creates a `PENDING_PAYMENT` booking and a PIX charge.
+2. MP webhook → payment `approved` → booking `CONFIRMED` and Calendar event with Meet.
+3. Rare edge case after payment: booking may become `CANCELLED` (manual handling / refunds are outside this minimal scope).
+
+## Instagram
+
+Use the public `/book` URL in the bio or stories.
+
+## Privacy
+
+Copy is at `/privacidade` (Brazilian LGPD + CFP advertising note). Customize the data controller and contact details.
+
+## Visual design
+
+Theme inspired by the practice’s feed (navy, parchment, gold/ochre), with **Playfair Display** (headings) and **Source Sans 3** (body text).

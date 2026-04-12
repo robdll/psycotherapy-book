@@ -1,0 +1,14 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    # Host 27018 avoids clashing with another MongoDB (or tool) already on 27017
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_DATABASE: psicology_booking
+    volumes:
+      - psicology_mongo_data:/data/db
+
+volumes:
+  psicology_mongo_data:

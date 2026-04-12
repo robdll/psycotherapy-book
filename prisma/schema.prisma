@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Booking {
+  id                    String   @id @default(cuid()) @map("_id")
+  clientName            String
+  clientEmail           String
+  startAt               DateTime
+  endAt                 DateTime
+  /// PENDING_PAYMENT | CONFIRMED | CANCELLED | EXPIRED
+  status                String   @default("PENDING_PAYMENT")
+  mercadoPagoPaymentId String?  @unique
+  calendarEventId       String?
+  amountCents           Int
+  currency              String   @default("BRL")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([startAt, status])
+}
+
+/// Single document: id must be "default" (see app code).
+model TherapistGoogleToken {
+  id           String @id @map("_id")
+  accessToken  String
+  refreshToken String
+  expiryDateMs Int
+}
+
+/// Single document: id must be "default" (see app code).
+model AvailabilitySettings {
+  id                  String   @id @map("_id")
+  /// JSON array of weekday numbers 0=Sun … 6=Sat (e.g. [2,4] = Tue, Thu)
+  allowedWeekdaysJson String   @default("[2,4]")
+  sessionMinutes      Int      @default(50)
+  bufferMinutes       Int      @default(10)
+  dayStartLocal       String   @default("09:00")
+  dayEndLocal         String   @default("18:00")
+  timezone            String   @default("America/Sao_Paulo")
+  sessionPriceCents   Int      @default(15000)
+  updatedAt           DateTime @updatedAt
+}
+
+model BlackoutDate {
+  id   String  @id @default(cuid()) @map("_id")
+  /// YYYY-MM-DD in therapist timezone
+  date String  @unique
+  note String?
+}
