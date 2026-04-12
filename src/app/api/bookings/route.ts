@@ -3,7 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BookingStatus } from "@/lib/booking-status";
-import { createPixPaymentForBooking, mercadoPagoPixDateOfExpiration } from "@/lib/mercadopago-client";
+import { createPixPaymentForBooking } from "@/lib/mercadopago-client";
 import { formatMercadoPagoError, mercadoPagoErrorForClient } from "@/lib/mercadopago-errors";
 import { getAvailabilitySettings } from "@/lib/settings";
 import { createBookingSchema } from "@/lib/validation";
@@ -55,8 +55,6 @@ export async function POST(req: Request) {
     },
   });
 
-  const exp = mercadoPagoPixDateOfExpiration(addMinutes(new Date(), 45));
-
   let pix: Awaited<ReturnType<typeof createPixPaymentForBooking>>;
   try {
     pix = await createPixPaymentForBooking({
@@ -66,7 +64,6 @@ export async function POST(req: Request) {
       clientName,
       clientCpf,
       description: `Sessão de psicoterapia — ${formatInTimeZone(startAt, settings.timezone, "dd/MM/yyyy HH:mm")}`,
-      dateOfExpiration: exp,
     });
   } catch (e) {
     await prisma.booking.update({

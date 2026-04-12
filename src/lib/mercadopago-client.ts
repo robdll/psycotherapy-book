@@ -14,11 +14,6 @@ export type PixPaymentResult = {
   ticketUrl?: string;
 };
 
-/** MP validates `date_of_expiration` as `yyyy-MM-dd'T'HH:mm:ssz` — use UTC `Z`, not `+03:00` / `-03:00`. */
-export function mercadoPagoPixDateOfExpiration(at: Date): string {
-  return at.toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
 export async function createPixPaymentForBooking(params: {
   bookingId: string;
   amountCents: number;
@@ -27,7 +22,7 @@ export async function createPixPaymentForBooking(params: {
   /** Digits-only CPF (11) — required for PIX in Brazil per MP API docs. */
   clientCpf: string;
   description: string;
-  /** ISO datetime when PIX offer expires (Mercado Pago format) */
+  /** ISO datetime when PIX offer expires. Omit to use MP default (24h for PIX in BR). */
   dateOfExpiration?: string;
 }): Promise<PixPaymentResult> {
   const payment = getPaymentClient();
