@@ -3,17 +3,30 @@ import { isAdminAuthenticated } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 const addSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   note: z.string().max(200).optional(),
 });
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  try {
+    if (!(await isAdminAuthenticated())) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    const rows = await prisma.blackoutDate.findMany({ orderBy: { date: "asc" } });
+    return NextResponse.json({ blackouts: rows });
+  } catch (e) {
+    console.error("[api/admin/blackouts GET]", e);
+    const showDetail =
+      process.env.NODE_ENV !== "production" || process.env.ADMIN_API_DEBUG === "1";
+    const detail = showDetail && e instanceof Error ? e.message : undefined;
+    return NextResponse.json(
+      { error: "server_error", ...(detail ? { detail } : {}) },
+      { status: 500 },
+    );
   }
-  const rows = await prisma.blackoutDate.findMany({ orderBy: { date: "asc" } });
-  return NextResponse.json({ blackouts: rows });
 }
 
 export async function POST(req: Request) {

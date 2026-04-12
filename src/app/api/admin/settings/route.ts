@@ -5,6 +5,8 @@ import { isGoogleConnected } from "@/lib/google-calendar";
 import { getAvailabilitySettings, parseAllowedWeekdays } from "@/lib/settings";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 const updateSchema = z.object({
   allowedWeekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
   sessionMinutes: z.number().int().min(15).max(180).optional(),
@@ -16,21 +18,32 @@ const updateSchema = z.object({
 });
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  try {
+    if (!(await isAdminAuthenticated())) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    const s = await getAvailabilitySettings();
+    const googleConnected = await isGoogleConnected();
+    return NextResponse.json({
+      googleConnected,
+      allowedWeekdays: parseAllowedWeekdays(s.allowedWeekdaysJson),
+      sessionMinutes: s.sessionMinutes,
+      bufferMinutes: s.bufferMinutes,
+      dayStartLocal: s.dayStartLocal,
+      dayEndLocal: s.dayEndLocal,
+      timezone: s.timezone,
+      sessionPriceCents: s.sessionPriceCents,
+    });
+  } catch (e) {
+    console.error("[api/admin/settings GET]", e);
+    const showDetail =
+      process.env.NODE_ENV !== "production" || process.env.ADMIN_API_DEBUG === "1";
+    const detail = showDetail && e instanceof Error ? e.message : undefined;
+    return NextResponse.json(
+      { error: "server_error", ...(detail ? { detail } : {}) },
+      { status: 500 },
+    );
   }
-  const s = await getAvailabilitySettings();
-  const googleConnected = await isGoogleConnected();
-  return NextResponse.json({
-    googleConnected,
-    allowedWeekdays: parseAllowedWeekdays(s.allowedWeekdaysJson),
-    sessionMinutes: s.sessionMinutes,
-    bufferMinutes: s.bufferMinutes,
-    dayStartLocal: s.dayStartLocal,
-    dayEndLocal: s.dayEndLocal,
-    timezone: s.timezone,
-    sessionPriceCents: s.sessionPriceCents,
-  });
 }
 
 export async function PUT(req: Request) {

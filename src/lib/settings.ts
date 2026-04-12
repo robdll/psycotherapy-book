@@ -13,7 +13,11 @@ export async function getAvailabilitySettings() {
 }
 
 export function parseAllowedWeekdays(json: string): Weekday[] {
-  const arr = JSON.parse(json) as unknown;
-  if (!Array.isArray(arr)) return [2, 4];
-  return arr.filter((n): n is Weekday => typeof n === "number" && n >= 0 && n <= 6);
+  try {
+    const arr = JSON.parse(json) as unknown;
+    if (!Array.isArray(arr)) return [2, 4];
+    return arr.filter((n): n is Weekday => typeof n === "number" && n >= 0 && n <= 6);
+  } catch {
+    return [2, 4];
+  }
 }
