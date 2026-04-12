@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BookingStatus } from "@/lib/booking-status";
 import { createPixPaymentForBooking } from "@/lib/mercadopago-client";
+import { formatMercadoPagoError } from "@/lib/mercadopago-errors";
 import { getAvailabilitySettings } from "@/lib/settings";
 import { createBookingSchema } from "@/lib/validation";
 import { computeOpenSlots } from "@/lib/open-slots";
@@ -75,8 +76,15 @@ export async function POST(req: Request) {
       where: { id: booking.id },
       data: { status: BookingStatus.CANCELLED },
     });
-    console.error(e);
-    return NextResponse.json({ error: "payment_provider_error" }, { status: 502 });
+    const msg = formatMercadoPagoError(e);
+    console.error("Mercado Pago create payment failed:", msg, e);
+    return NextResponse.json(
+      {
+        error: "payment_provider_error",
+        ...(process.env.NODE_ENV === "development" ? { details: msg } : {}),
+      },
+      { status: 502 },
+    );
   }
 
   await prisma.booking.update({

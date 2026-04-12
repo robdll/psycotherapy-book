@@ -15,7 +15,8 @@ model Booking {
   endAt                 DateTime
   /// PENDING_PAYMENT | CONFIRMED | CANCELLED | EXPIRED
   status                String   @default("PENDING_PAYMENT")
-  mercadoPagoPaymentId String?  @unique
+  /// Set after PIX is created. Not @unique: MongoDB unique + many nulls only allows one null row.
+  mercadoPagoPaymentId String?
   calendarEventId       String?
   amountCents           Int
   currency              String   @default("BRL")
@@ -23,6 +24,7 @@ model Booking {
   updatedAt             DateTime @updatedAt
 
   @@index([startAt, status])
+  @@index([mercadoPagoPaymentId])
 }
 
 /// Single document: id must be "default" (see app code).

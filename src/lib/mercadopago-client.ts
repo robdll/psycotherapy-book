@@ -2,7 +2,7 @@ import { MercadoPagoConfig, Payment } from "mercadopago";
 import { createHmac, timingSafeEqual } from "crypto";
 
 function getPaymentClient() {
-  const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  const token = process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
   if (!token) throw new Error("Missing MERCADOPAGO_ACCESS_TOKEN");
   return new Payment(new MercadoPagoConfig({ accessToken: token }));
 }

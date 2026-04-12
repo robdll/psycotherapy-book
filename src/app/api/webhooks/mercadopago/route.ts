@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { finalizeBookingAfterApprovedPayment } from "@/lib/booking-confirm";
 import { verifyMercadoPagoWebhookSignature } from "@/lib/mercadopago-client";
 
 export async function POST(req: NextRequest) {
@@ -26,18 +25,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
   }
 
-  const { getPaymentById } = await import("@/lib/mercadopago-client");
-  const remote = await getPaymentById(paymentId);
-  const bookingId = remote.external_reference;
-  if (!bookingId) {
-    return NextResponse.json({ ok: true, ignored: true });
-  }
-
-  if (remote.status === "approved") {
-    const res = await finalizeBookingAfterApprovedPayment({ bookingId, paymentId });
-    if (!res.ok) {
-      console.error("finalizeBookingAfterApprovedPayment", res);
-    }
+  const { tryFinalizeFromMercadoPagoPaymentId } = await import("@/lib/booking-mp-sync");
+  const res = await tryFinalizeFromMercadoPagoPaymentId(paymentId);
+  if (!res.ok && res.reason !== "payment_not_approved") {
+    console.error("[webhook] finalize issue", paymentId, res);
+  } else if (!res.ok && res.reason === "payment_not_approved") {
+    console.info("[webhook] payment not approved yet; will retry on next notification or client poll", paymentId, res.mpStatus);
   }
 
   return NextResponse.json({ ok: true });

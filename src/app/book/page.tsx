@@ -23,12 +23,14 @@ export default function BookPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [bookingId, setBookingId] = useState<string | null>(null);
   const [pix, setPix] = useState<{
     paymentId: string;
     qrCode?: string;
     qrCodeBase64?: string;
     ticketUrl?: string;
   } | null>(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +57,23 @@ export default function BookPage() {
     });
   }, [load]);
 
+  useEffect(() => {
+    if (!bookingId || paymentConfirmed) return;
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/bookings/${bookingId}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { status: string };
+        if (j.status === "CONFIRMED") setPaymentConfirmed(true);
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 2500);
+    return () => clearInterval(id);
+  }, [bookingId, paymentConfirmed]);
+
   const slotLabel = useMemo(() => {
     if (!selected) return "";
     return fmt.format(new Date(selected.start));
@@ -78,14 +97,17 @@ export default function BookPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(
-          data.error === "slot_unavailable" || data.error === "slot_reserved"
-            ? "Esse horário acabou de ser reservado. Escolha outro."
-            : "Não foi possível criar o pagamento. Verifique os dados ou tente mais tarde.",
-        );
+        if (data.error === "slot_unavailable" || data.error === "slot_reserved") {
+          setError("Esse horário acabou de ser reservado. Escolha outro.");
+        } else if (data.error === "payment_provider_error" && typeof data.details === "string") {
+          setError(`Pagamento: ${data.details}`);
+        } else {
+          setError("Não foi possível criar o pagamento. Verifique os dados ou tente mais tarde.");
+        }
         await load();
         return;
       }
+      setBookingId(typeof data.bookingId === "string" ? data.bookingId : null);
       setPix(data.pix);
     } catch {
       setError("Erro de rede. Tente novamente.");
@@ -162,11 +184,39 @@ export default function BookPage() {
             {submitting ? "Gerando PIX…" : "Gerar pagamento PIX"}
           </button>
         </form>
+      ) : paymentConfirmed ? (
+        <div className="mt-8 space-y-4 rounded-xl border border-gold/40 bg-parchment p-6 text-parchment-ink shadow-lg shadow-black/20">
+          <h2 className="font-display text-lg font-semibold text-teal-900">Reserva confirmada</h2>
+          <p className="text-sm text-parchment-ink/90">
+            Horário: <span className="font-semibold">{slotLabel}</span>
+          </p>
+          <p className="text-sm text-parchment-ink/90">
+            O pagamento foi reconhecido. Se o Google Calendar estiver conectado em /admin, o convite com Google Meet foi
+            enviado para <span className="font-medium">{email}</span>.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPix(null);
+              setBookingId(null);
+              setPaymentConfirmed(false);
+              setSelected(null);
+              void load();
+            }}
+            className="rounded-md border border-gold/50 bg-gold px-4 py-2 text-sm font-semibold text-navy-950 hover:bg-gold-hover"
+          >
+            Nova reserva
+          </button>
+        </div>
       ) : (
         <div className="mt-8 space-y-4 rounded-xl border border-gold/35 bg-parchment p-6 text-parchment-ink shadow-lg shadow-black/20">
           <h2 className="font-display text-lg font-semibold">Pague com PIX para confirmar</h2>
           <p className="text-sm text-parchment-ink/80">
             Horário: <span className="font-semibold text-parchment-ink">{slotLabel}</span>
+          </p>
+          <p className="rounded-md border border-gold/25 bg-white/80 px-3 py-2 text-xs text-parchment-ink/80">
+            Esta página verifica automaticamente o pagamento a cada poucos segundos. Você pode fechar e voltar depois com o
+            mesmo link só se anotar o ID do pagamento no Mercado Pago.
           </p>
           {pix.qrCodeBase64 && (
             <Image

@@ -40,9 +40,20 @@
 
 6. Open `/admin`, sign in, configure availability, add blackouts, and **Connect Google account** (first time should return a `refresh_token` with `prompt=consent`).
 
-7. In Mercado Pago, register the webhook URL:  
-   `{NEXT_PUBLIC_APP_URL}/api/webhooks/mercadopago`  
-   (payment notifications).
+7. In Mercado Pago, register webhook URL(s) for payment notifications — see **Production vs local** below.
+
+### Production domain vs local development
+
+Use **`https://cintyaflores.com`** (or consistently **`https://www.cintyaflores.com`**) in production. Pick **one** canonical host and use it for DNS, SSL, `NEXT_PUBLIC_APP_URL`, Google OAuth redirect, and Mercado Pago webhooks.
+
+| Concern | Local (`npm run dev`) | Production (`cintyaflores.com`) |
+|--------|------------------------|----------------------------------|
+| **`NEXT_PUBLIC_APP_URL`** | `http://localhost:3000` | `https://cintyaflores.com` |
+| **Google OAuth redirect** | Add `http://localhost:3000/api/auth/google/callback` **and** your production URL under the same Web client in Google Cloud. | Same client, production redirect must match the URL you deploy. |
+| **Mercado Pago webhooks** | MP cannot reach `localhost`. Options: (a) register a **tunnel URL** (e.g. [ngrok](https://ngrok.com/), Cloudflare Tunnel) pointing to `localhost:3000` and add `https://YOUR-TUNNEL.ngrok-free.app/api/webhooks/mercadopago` in the MP dashboard; or (b) test webhooks only on the **deployed** staging/production site. | `https://cintyaflores.com/api/webhooks/mercadopago` |
+| **Env files** | `.env.local` with test MP token + local URL is typical. | Hosting provider env vars with **production** MP credentials and production URL. |
+
+You can still **create PIX and pay** locally if the access token works; only the **automatic confirmation** (webhook → confirm booking) needs a URL Mercado Pago can call.
 
 ### Useful commands
 
