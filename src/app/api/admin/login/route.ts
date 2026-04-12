@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { setAdminSessionCookie, verifyAdminPassword } from "@/lib/admin-session";
+import {
+  ADMIN_SESSION_COOKIE,
+  adminSessionCookieBase,
+  createAdminSessionToken,
+  verifyAdminPassword,
+} from "@/lib/admin-session";
 
 export async function POST(req: Request) {
   const { password } = (await req.json().catch(() => ({}))) as { password?: string };
@@ -7,12 +12,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  let token: string;
   try {
-    await setAdminSessionCookie();
+    token = await createAdminSessionToken();
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "session_not_configured" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set(ADMIN_SESSION_COOKIE, token, adminSessionCookieBase());
+  return res;
 }

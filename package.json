@@ -9,7 +9,7 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
-    "docker:up": "docker compose up -d mongo",
+    "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
   },
   "dependencies": {

@@ -80,8 +80,15 @@ export default function AdminPage() {
       credentials: "include",
       body: JSON.stringify({ password }),
     });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) {
-      setMsg("Senha incorreta.");
+      if (res.status === 500 && body.error === "session_not_configured") {
+        setMsg("Servidor sem SESSION_SECRET (mín. 16 caracteres no .env).");
+      } else if (res.status === 401) {
+        setMsg("Senha incorreta ou ADMIN_PASSWORD não definido no .env.");
+      } else {
+        setMsg("Não foi possível entrar. Tente de novo.");
+      }
       return;
     }
     setPassword("");

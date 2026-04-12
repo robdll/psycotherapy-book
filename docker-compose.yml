@@ -2,6 +2,8 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    # Prisma uses transactions on MongoDB; a replica set is required (even single-node).
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     # Host 27018 avoids clashing with another MongoDB (or tool) already on 27017
     ports:
       - "27018:27017"
@@ -9,6 +11,28 @@ services:
       MONGO_INITDB_DATABASE: psicology_booking
     volumes:
       - psicology_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "mongodb://localhost:27017/", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  # One-shot: rs.initiate() on first boot (no-op if already a replica set)
+  mongo-init-replica:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        mongosh "mongodb://mongo:27017" --eval '
+          try { rs.status(); } catch (e) {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] });
+          }
+        '
 
 volumes:
   psicology_mongo_data:

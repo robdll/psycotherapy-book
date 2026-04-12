@@ -1,8 +1,9 @@
 import { timingSafeEqual } from "crypto";
+import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const COOKIE = "admin_session";
+export const ADMIN_SESSION_COOKIE = "admin_session";
 
 function getSecret() {
   const s = process.env.SESSION_SECRET;
@@ -10,6 +11,17 @@ function getSecret() {
     throw new Error("SESSION_SECRET must be set (min 16 characters)");
   }
   return new TextEncoder().encode(s);
+}
+
+/** Options for `NextResponse.cookies.set` (Route Handlers); do not use `cookies().set` there — it often does not attach Set-Cookie. */
+export function adminSessionCookieBase(): Omit<ResponseCookie, "name" | "value"> {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  };
 }
 
 export async function createAdminSessionToken(): Promise<string> {
@@ -20,26 +32,9 @@ export async function createAdminSessionToken(): Promise<string> {
     .sign(getSecret());
 }
 
-export async function setAdminSessionCookie() {
-  const token = await createAdminSessionToken();
-  const jar = await cookies();
-  jar.set(COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-}
-
-export async function clearAdminSessionCookie() {
-  const jar = await cookies();
-  jar.delete(COOKIE);
-}
-
 export async function isAdminAuthenticated(): Promise<boolean> {
   const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
+  const token = jar.get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return false;
   try {
     await jwtVerify(token, getSecret());
@@ -50,9 +45,10 @@ export async function isAdminAuthenticated(): Promise<boolean> {
 }
 
 export function verifyAdminPassword(password: string): boolean {
-  const expected = process.env.ADMIN_PASSWORD;
+  const expected = process.env.ADMIN_PASSWORD?.trim();
   if (!expected) return false;
-  const ba = Buffer.from(password, "utf8");
+  const p = password.trim();
+  const ba = Buffer.from(p, "utf8");
   const bb = Buffer.from(expected, "utf8");
   if (ba.length !== bb.length) return false;
   return timingSafeEqual(ba, bb);
