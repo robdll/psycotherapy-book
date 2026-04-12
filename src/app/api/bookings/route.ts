@@ -3,7 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BookingStatus } from "@/lib/booking-status";
-import { createPixPaymentForBooking } from "@/lib/mercadopago-client";
+import { createPixPaymentForBooking, mercadoPagoPixDateOfExpirationIso } from "@/lib/mercadopago-client";
 import { normalizeCpf } from "@/lib/cpf";
 import { formatMercadoPagoError, mercadoPagoErrorForClient } from "@/lib/mercadopago-errors";
 import { getAvailabilitySettings } from "@/lib/settings";
@@ -57,12 +57,24 @@ export async function POST(req: Request) {
   });
 
   const description = `Sessão de psicoterapia — ${formatInTimeZone(startAt, settings.timezone, "dd/MM/yyyy HH:mm")}`;
-  /** MP BR: ISO8601 with offset, e.g. `2024-09-10T20:40:00-03:00` — entre 30 min e 30 dias (doc + suporte). */
-  const dateOfExpiration = formatInTimeZone(
-    addMinutes(new Date(), 45),
-    settings.timezone,
-    "yyyy-MM-dd'T'HH:mm:ssxxx",
-  );
+  /** Doc: `2020-05-30T23:59:59.000-04:00` — `yyyy-MM-dd'T'HH:mm:ss.SSSxxx` in therapist TZ. */
+  const dateOfExpiration = mercadoPagoPixDateOfExpirationIso(addMinutes(new Date(), 45), settings.timezone);
+
+  const cancelBookingPayment = () =>
+    prisma.booking.update({ where: { id: booking.id }, data: { status: BookingStatus.CANCELLED } });
+
+  const payment502 = (err: unknown) => {
+    const msg = formatMercadoPagoError(err);
+    const clientDetails = mercadoPagoErrorForClient(err);
+    console.error("Mercado Pago create payment failed:", msg, err);
+    return NextResponse.json(
+      {
+        error: "payment_provider_error",
+        ...(clientDetails ? { details: clientDetails } : process.env.NODE_ENV === "development" ? { details: msg } : {}),
+      },
+      { status: 502 },
+    );
+  };
 
   let pix: Awaited<ReturnType<typeof createPixPaymentForBooking>>;
   try {
@@ -75,12 +87,46 @@ export async function POST(req: Request) {
       description,
       dateOfExpiration,
     });
-  } catch (e1) {
-    const msg1 = formatMercadoPagoError(e1);
+  } catch (e0) {
+    const msg0 = formatMercadoPagoError(e0);
     const cpfDigits = normalizeCpf(clientCpf);
-    const retryWithoutId = /financial identity/i.test(msg1) && cpfDigits.length === 11;
 
-    if (retryWithoutId) {
+    if (/date_of_expiration|must be valid date/i.test(msg0)) {
+      console.warn("[bookings] MP rejected date_of_expiration; retrying without field", booking.id, msg0);
+      try {
+        pix = await createPixPaymentForBooking({
+          bookingId: booking.id,
+          amountCents: booking.amountCents,
+          clientEmail,
+          clientName,
+          clientCpf,
+          description,
+          idempotencyKey: `${booking.id}:nodate`,
+        });
+      } catch (e1) {
+        const msg1 = formatMercadoPagoError(e1);
+        if (/financial identity/i.test(msg1) && cpfDigits.length === 11) {
+          try {
+            pix = await createPixPaymentForBooking({
+              bookingId: booking.id,
+              amountCents: booking.amountCents,
+              clientEmail,
+              clientName,
+              clientCpf,
+              description,
+              omitIdentification: true,
+              idempotencyKey: `${booking.id}:nodate-noid`,
+            });
+          } catch (e2) {
+            await cancelBookingPayment();
+            return payment502(e2);
+          }
+        } else {
+          await cancelBookingPayment();
+          return payment502(e1);
+        }
+      }
+    } else if (/financial identity/i.test(msg0) && cpfDigits.length === 11) {
       console.warn(
         "[bookings] Mercado Pago financial identity error with CPF; retrying PIX without payer.identification",
         booking.id,
@@ -98,35 +144,12 @@ export async function POST(req: Request) {
           idempotencyKey: `${booking.id}:noid`,
         });
       } catch (e2) {
-        await prisma.booking.update({
-          where: { id: booking.id },
-          data: { status: BookingStatus.CANCELLED },
-        });
-        const msg = formatMercadoPagoError(e2);
-        const clientDetails = mercadoPagoErrorForClient(e2);
-        console.error("Mercado Pago create payment failed (after retry):", msg, e2);
-        return NextResponse.json(
-          {
-            error: "payment_provider_error",
-            ...(clientDetails ? { details: clientDetails } : process.env.NODE_ENV === "development" ? { details: msg } : {}),
-          },
-          { status: 502 },
-        );
+        await cancelBookingPayment();
+        return payment502(e2);
       }
     } else {
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { status: BookingStatus.CANCELLED },
-      });
-      const clientDetails = mercadoPagoErrorForClient(e1);
-      console.error("Mercado Pago create payment failed:", msg1, e1);
-      return NextResponse.json(
-        {
-          error: "payment_provider_error",
-          ...(clientDetails ? { details: clientDetails } : process.env.NODE_ENV === "development" ? { details: msg1 } : {}),
-        },
-        { status: 502 },
-      );
+      await cancelBookingPayment();
+      return payment502(e0);
     }
   }
 

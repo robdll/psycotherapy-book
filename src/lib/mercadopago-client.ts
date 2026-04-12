@@ -1,5 +1,15 @@
+import { formatInTimeZone } from "date-fns-tz";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import { createHmac, timingSafeEqual } from "crypto";
+
+/**
+ * MP doc example: `2020-05-30T23:59:59.000-04:00` — fractional seconds + offset with colon, in seller TZ.
+ * @see https://www.mercadopago.com.br/developers/pt/docs/checkout-api-payments/integration-configuration/integrate-pix
+ */
+export function mercadoPagoPixDateOfExpirationIso(at: Date, timeZone: string): string {
+  const roundedMs = Math.floor(at.getTime() / 1000) * 1000;
+  return formatInTimeZone(new Date(roundedMs), timeZone, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+}
 
 function getPaymentClient() {
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
@@ -22,10 +32,7 @@ export async function createPixPaymentForBooking(params: {
   /** Digits-only CPF (11), optional — some MP flows fail identity checks when CPF is sent. */
   clientCpf: string;
   description: string;
-  /**
-   * ISO8601 with numeric offset in the seller timezone, e.g. `2024-09-10T20:40:00-03:00`.
-   * Must be 30 min–30 days from “now” (MP). Omit only if you intentionally want MP’s default.
-   */
+  /** ISO8601 like `2020-05-30T23:59:59.000-04:00` (use {@link mercadoPagoPixDateOfExpirationIso}). Omit for MP default ~24h. */
   dateOfExpiration?: string;
   /** Do not send `payer.identification` (retry path after “Financial Identity” errors). */
   omitIdentification?: boolean;
