@@ -155,15 +155,10 @@ export default function BookPage() {
               <input
                 inputMode="numeric"
                 autoComplete="off"
-                placeholder="000.000.000-00 — deixe em branco se o pagamento falhar"
                 value={cpf}
                 onChange={(e) => setCpf(e.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-[11px] text-parchment/50">
-                Se preenchido, enviamos ao Mercado Pago só para criar o PIX; não armazenamos. Em branco, o MP pode aceitar só
-                e-mail e nome.
-              </p>
             </div>
           </section>
 
