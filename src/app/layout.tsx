@@ -14,7 +14,7 @@ const sourceSans = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Agendamento — Psicoterapia",
+  title: "Agendamento — Psicoanálise",
   description: "Reserve sua sessão. Confirmação após pagamento via PIX.",
 };
 

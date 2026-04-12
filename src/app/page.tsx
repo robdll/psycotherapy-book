@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-12">
       <div className="space-y-4">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold-dim">Psicoterapia online</p>
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold-dim">Psicoanálise online</p>
         <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight text-parchment md:text-4xl">
           Agende sua sessão com segurança
         </h1>

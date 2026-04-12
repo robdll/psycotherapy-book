@@ -8,7 +8,7 @@ export default function PrivacidadePage() {
         <h2 className="font-display text-base font-semibold text-gold-dim">1. Controlador</h2>
         <p>
           Os dados pessoais tratados por este sistema de agendamento são de responsabilidade da profissional que presta o serviço de
-          psicoterapia (controladora), em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD).
+          Psicoanálise (controladora), em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD).
         </p>
       </section>
 

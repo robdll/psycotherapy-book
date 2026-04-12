@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     },
   });
 
-  const description = `Sessão de psicoterapia — ${formatInTimeZone(startAt, settings.timezone, "dd/MM/yyyy HH:mm")}`;
+  const description = `Sessão de psicoanálise — ${formatInTimeZone(startAt, settings.timezone, "dd/MM/yyyy HH:mm")}`;
   /** Doc: `2020-05-30T23:59:59.000-04:00` — `yyyy-MM-dd'T'HH:mm:ss.SSSxxx` in therapist TZ. */
   const dateOfExpiration = mercadoPagoPixDateOfExpirationIso(addMinutes(new Date(), 45), settings.timezone);
 
