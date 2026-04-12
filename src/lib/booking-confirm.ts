@@ -47,28 +47,54 @@ export async function finalizeBookingAfterApprovedPayment(params: {
     }
   }
 
-  const settings = await getAvailabilitySettings();
-  let calendarEventId: string | null = null;
-
-  if (await isGoogleConnected()) {
-    calendarEventId = await createMeetEvent({
-      summary: `Sessão — ${booking.clientName}`,
-      description: `Agendamento confirmado. Contato: ${booking.clientEmail}`,
-      start: booking.startAt,
-      end: booking.endAt,
-      timeZone: settings.timezone,
-      attendeeEmail: booking.clientEmail,
-    });
-  }
-
-  await prisma.booking.update({
-    where: { id: booking.id },
+  const mpIdBeforeClaim = booking.mercadoPagoPaymentId;
+  const claimed = await prisma.booking.updateMany({
+    where: { id: params.bookingId, status: BookingStatus.PENDING_PAYMENT },
     data: {
       status: BookingStatus.CONFIRMED,
       mercadoPagoPaymentId: params.paymentId,
-      calendarEventId,
     },
   });
+
+  if (claimed.count === 0) {
+    const again = await prisma.booking.findUnique({ where: { id: params.bookingId } });
+    if (!again) return { ok: false, reason: "booking_not_found" };
+    if (again.status === BookingStatus.CONFIRMED) {
+      const samePayment =
+        !again.mercadoPagoPaymentId || again.mercadoPagoPaymentId === params.paymentId;
+      return samePayment ? { ok: true } : { ok: false, reason: "payment_mismatch" };
+    }
+    return { ok: false, reason: "claim_failed" };
+  }
+
+  const settings = await getAvailabilitySettings();
+
+  if (await isGoogleConnected()) {
+    try {
+      const calendarEventId = await createMeetEvent({
+        summary: `Sessão — ${booking.clientName}`,
+        description: `Agendamento confirmado. Contato: ${booking.clientEmail}`,
+        start: booking.startAt,
+        end: booking.endAt,
+        timeZone: settings.timezone,
+        attendeeEmail: booking.clientEmail,
+      });
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { calendarEventId },
+      });
+    } catch (err) {
+      console.error("[booking-confirm] Google Calendar create failed; reverting booking for retry", err);
+      await prisma.booking.updateMany({
+        where: { id: params.bookingId, status: BookingStatus.CONFIRMED },
+        data: {
+          status: BookingStatus.PENDING_PAYMENT,
+          mercadoPagoPaymentId: mpIdBeforeClaim,
+        },
+      });
+      throw err;
+    }
+  }
 
   return { ok: true };
 }
