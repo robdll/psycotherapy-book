@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import { isGoogleConnected } from "@/lib/google-calendar";
+import { prismaPublicErrorFields } from "@/lib/prisma-public-error";
 import { getAvailabilitySettings, parseAllowedWeekdays } from "@/lib/settings";
 import { z } from "zod";
 
@@ -40,7 +41,7 @@ export async function GET() {
       process.env.NODE_ENV !== "production" || process.env.ADMIN_API_DEBUG === "1";
     const detail = showDetail && e instanceof Error ? e.message : undefined;
     return NextResponse.json(
-      { error: "server_error", ...(detail ? { detail } : {}) },
+      { error: "server_error", ...prismaPublicErrorFields(e), ...(detail ? { detail } : {}) },
       { status: 500 },
     );
   }
