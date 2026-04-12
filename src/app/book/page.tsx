@@ -140,38 +140,8 @@ export default function BookPage() {
 
       {!pix ? (
         <form onSubmit={onSubmit} className="mt-8 space-y-8">
-          <section>
-            <h2 className="text-sm font-semibold text-gold-dim">1. Horário</h2>
-            {loading ? (
-              <p className="mt-2 text-sm text-parchment/60">Carregando…</p>
-            ) : slots.length === 0 ? (
-              <p className="mt-2 text-sm text-parchment/60">Nenhum horário livre neste período.</p>
-            ) : (
-              <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto rounded-lg border border-gold/30 bg-navy-800/50 p-2">
-                {slots.map((s) => {
-                  const active = selected?.start === s.start;
-                  return (
-                    <li key={s.start}>
-                      <button
-                        type="button"
-                        onClick={() => setSelected(s)}
-                        className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
-                          active
-                            ? "border border-gold/50 bg-gold text-navy-950"
-                            : "text-parchment/90 hover:bg-navy-800"
-                        }`}
-                      >
-                        {fmt.format(new Date(s.start))}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-gold-dim">2. Seus dados</h2>
+            <h2 className="text-sm font-semibold text-gold-dim">1. Seus dados</h2>
             <div>
               <label className="block text-xs font-medium text-parchment/70">Nome completo</label>
               <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
@@ -195,6 +165,36 @@ export default function BookPage() {
                 e-mail e nome.
               </p>
             </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold text-gold-dim">2. Horário</h2>
+            {loading ? (
+              <p className="mt-2 text-sm text-parchment/60">Carregando…</p>
+            ) : slots.length === 0 ? (
+              <p className="mt-2 text-sm text-parchment/60">Nenhum horário livre neste período.</p>
+            ) : (
+              <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto rounded-lg border border-gold/30 bg-navy-800/50 p-2">
+                {slots.map((s) => {
+                  const active = selected?.start === s.start;
+                  return (
+                    <li key={s.start}>
+                      <button
+                        type="button"
+                        onClick={() => setSelected(s)}
+                        className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
+                          active
+                            ? "border border-gold/50 bg-gold text-navy-950"
+                            : "text-parchment/90 hover:bg-navy-800"
+                        }`}
+                      >
+                        {fmt.format(new Date(s.start))}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
 
           <button

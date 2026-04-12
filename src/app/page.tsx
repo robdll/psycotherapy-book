@@ -14,24 +14,20 @@ export default function Home() {
           Meet.
         </p>
       </div>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3">
         <Link
           href="/book"
-          className="inline-flex items-center justify-center rounded-md border border-gold/50 bg-gold px-5 py-2.5 text-sm font-semibold text-navy-950 shadow-sm transition hover:border-gold-hover hover:bg-gold-hover"
+          className="inline-flex w-fit items-center justify-center rounded-md border border-gold/50 bg-gold px-5 py-2.5 text-sm font-semibold text-navy-950 shadow-sm transition hover:border-gold-hover hover:bg-gold-hover"
         >
           Ver horários disponíveis
         </Link>
         <Link
           href="/privacidade"
-          className="inline-flex items-center justify-center rounded-md border border-gold/35 bg-transparent px-5 py-2.5 text-sm font-medium text-parchment transition hover:border-gold hover:bg-navy-800/60"
+          className="w-fit text-xs text-parchment/50 underline decoration-gold/35 underline-offset-4 transition hover:text-parchment/75 hover:decoration-gold/55"
         >
           Política de privacidade
         </Link>
       </div>
-      <p className="text-sm text-parchment/55">
-        Para Instagram: coloque o link desta página na bio (por exemplo{" "}
-        <code className="rounded border border-gold/25 bg-navy-800/80 px-1.5 py-0.5 font-mono text-xs text-gold">/book</code>).
-      </p>
     </main>
   );
 }
