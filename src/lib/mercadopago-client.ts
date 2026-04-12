@@ -19,17 +19,21 @@ export async function createPixPaymentForBooking(params: {
   amountCents: number;
   clientEmail: string;
   clientName: string;
-  /** Digits-only CPF (11) — required for PIX in Brazil per MP API docs. */
+  /** Digits-only CPF (11), optional — some MP flows fail identity checks when CPF is sent. */
   clientCpf: string;
   description: string;
   /** ISO datetime when PIX offer expires. Omit to use MP default (24h for PIX in BR). */
   dateOfExpiration?: string;
+  /** Do not send `payer.identification` (retry path after “Financial Identity” errors). */
+  omitIdentification?: boolean;
+  /** Defaults to `bookingId`; use another value when retrying the same booking. */
+  idempotencyKey?: string;
 }): Promise<PixPaymentResult> {
   const payment = getPaymentClient();
   const amount = Math.round(params.amountCents) / 100;
   const [firstName, ...rest] = params.clientName.trim().split(/\s+/);
   const lastName = rest.join(" ") || firstName;
-  const cpf = params.clientCpf.replace(/\D/g, "");
+  const cpf = params.omitIdentification ? "" : params.clientCpf.replace(/\D/g, "");
 
   const res = await payment.create({
     body: {
@@ -38,6 +42,7 @@ export async function createPixPaymentForBooking(params: {
       payment_method_id: "pix",
       external_reference: params.bookingId,
       payer: {
+        entity_type: "individual",
         email: params.clientEmail,
         first_name: firstName.slice(0, 50),
         last_name: lastName.slice(0, 50),
@@ -47,7 +52,7 @@ export async function createPixPaymentForBooking(params: {
         ? { date_of_expiration: params.dateOfExpiration }
         : {}),
     },
-    requestOptions: { idempotencyKey: params.bookingId },
+    requestOptions: { idempotencyKey: params.idempotencyKey ?? params.bookingId },
   });
 
   const id = res.id != null ? String(res.id) : "";

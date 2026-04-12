@@ -181,17 +181,19 @@ export default function BookPage() {
               <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-parchment/70">CPF (exigido pelo Mercado Pago para PIX)</label>
+              <label className="block text-xs font-medium text-parchment/70">CPF (opcional)</label>
               <input
-                required
                 inputMode="numeric"
                 autoComplete="off"
-                placeholder="000.000.000-00"
+                placeholder="000.000.000-00 — deixe em branco se o pagamento falhar"
                 value={cpf}
                 onChange={(e) => setCpf(e.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-[11px] text-parchment/50">Usado só na criação do pagamento; não armazenamos o CPF.</p>
+              <p className="mt-1 text-[11px] text-parchment/50">
+                Se preenchido, enviamos ao Mercado Pago só para criar o PIX; não armazenamos. Em branco, o MP pode aceitar só
+                e-mail e nome.
+              </p>
             </div>
           </section>
 

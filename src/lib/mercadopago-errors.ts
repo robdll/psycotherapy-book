@@ -28,6 +28,13 @@ export function formatMercadoPagoError(err: unknown): string {
 export function mercadoPagoErrorForClient(err: unknown): string | undefined {
   const raw = formatMercadoPagoError(err);
   if (/MERCADOPAGO_ACCESS_TOKEN|access[_\s]?token|Missing MERCADOPAGO|Bearer\s/i.test(raw)) return undefined;
+  if (/financial identity/i.test(raw)) {
+    return (
+      "O Mercado Pago recusou a validação de identidade deste pagamento. " +
+      "Isso costuma ser resolvido na conta do recebedor (cadastro/verificação no Mercado Pago) ou trocando os dados do pagador. " +
+      "Se persistir, abra um chamado em Suporte para integrações no painel do Mercado Pago."
+    );
+  }
   if (raw.length > 400) return `${raw.slice(0, 400)}…`;
   return raw;
 }
