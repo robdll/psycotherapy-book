@@ -22,6 +22,7 @@ export default function BookPage() {
   const [selected, setSelected] = useState<Slot | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [pix, setPix] = useState<{
@@ -91,13 +92,18 @@ export default function BookPage() {
         body: JSON.stringify({
           clientName: name.trim(),
           clientEmail: email.trim(),
+          clientCpf: cpf,
           startAt: selected.start,
           endAt: selected.end,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (data.error === "slot_unavailable" || data.error === "slot_reserved") {
+        if (data.error === "invalid_body" && data.details && typeof data.details === "object") {
+          const flat = data.details as { fieldErrors?: Record<string, string[]> };
+          const cpfErr = flat.fieldErrors?.clientCpf?.[0];
+          setError(cpfErr ?? "Confira os dados do formulário e tente de novo.");
+        } else if (data.error === "slot_unavailable" || data.error === "slot_reserved") {
           setError("Esse horário acabou de ser reservado. Escolha outro.");
         } else if (data.error === "payment_provider_error" && typeof data.details === "string") {
           setError(`Pagamento: ${data.details}`);
@@ -173,6 +179,19 @@ export default function BookPage() {
             <div>
               <label className="block text-xs font-medium text-parchment/70">E-mail (para o convite)</label>
               <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-parchment/70">CPF (exigido pelo Mercado Pago para PIX)</label>
+              <input
+                required
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="000.000.000-00"
+                value={cpf}
+                onChange={(e) => setCpf(e.target.value)}
+                className={inputClass}
+              />
+              <p className="mt-1 text-[11px] text-parchment/50">Usado só na criação do pagamento; não armazenamos o CPF.</p>
             </div>
           </section>
 

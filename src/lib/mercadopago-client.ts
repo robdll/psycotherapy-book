@@ -19,6 +19,8 @@ export async function createPixPaymentForBooking(params: {
   amountCents: number;
   clientEmail: string;
   clientName: string;
+  /** Digits-only CPF (11) — required for PIX in Brazil per MP API docs. */
+  clientCpf: string;
   description: string;
   /** ISO datetime when PIX offer expires (Mercado Pago format) */
   dateOfExpiration?: string;
@@ -27,6 +29,7 @@ export async function createPixPaymentForBooking(params: {
   const amount = Math.round(params.amountCents) / 100;
   const [firstName, ...rest] = params.clientName.trim().split(/\s+/);
   const lastName = rest.join(" ") || firstName;
+  const cpf = params.clientCpf.replace(/\D/g, "");
 
   const res = await payment.create({
     body: {
@@ -38,11 +41,13 @@ export async function createPixPaymentForBooking(params: {
         email: params.clientEmail,
         first_name: firstName.slice(0, 50),
         last_name: lastName.slice(0, 50),
+        ...(cpf.length === 11 ? { identification: { type: "CPF", number: cpf } } : {}),
       },
       ...(params.dateOfExpiration
         ? { date_of_expiration: params.dateOfExpiration }
         : {}),
     },
+    requestOptions: { idempotencyKey: params.bookingId },
   });
 
   const id = res.id != null ? String(res.id) : "";

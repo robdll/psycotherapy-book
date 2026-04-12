@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BookingStatus } from "@/lib/booking-status";
 import { createPixPaymentForBooking } from "@/lib/mercadopago-client";
-import { formatMercadoPagoError } from "@/lib/mercadopago-errors";
+import { formatMercadoPagoError, mercadoPagoErrorForClient } from "@/lib/mercadopago-errors";
 import { getAvailabilitySettings } from "@/lib/settings";
 import { createBookingSchema } from "@/lib/validation";
 import { computeOpenSlots } from "@/lib/open-slots";
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_body", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { clientName, clientEmail, startAt: startStr, endAt: endStr } = parsed.data;
+  const { clientName, clientEmail, clientCpf, startAt: startStr, endAt: endStr } = parsed.data;
   const startAt = new Date(startStr);
   const endAt = new Date(endStr);
 
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   const exp = formatInTimeZone(
     addMinutes(new Date(), 45),
     settings.timezone,
-    "yyyy-MM-dd'T'HH:mm:ss.SSSxxx",
+    "yyyy-MM-dd'T'HH:mm:ssxxx",
   );
 
   let pix: Awaited<ReturnType<typeof createPixPaymentForBooking>>;
@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       amountCents: booking.amountCents,
       clientEmail,
       clientName,
+      clientCpf,
       description: `Sessão de psicoterapia — ${formatInTimeZone(startAt, settings.timezone, "dd/MM/yyyy HH:mm")}`,
       dateOfExpiration: exp,
     });
@@ -77,11 +78,12 @@ export async function POST(req: Request) {
       data: { status: BookingStatus.CANCELLED },
     });
     const msg = formatMercadoPagoError(e);
+    const clientDetails = mercadoPagoErrorForClient(e);
     console.error("Mercado Pago create payment failed:", msg, e);
     return NextResponse.json(
       {
         error: "payment_provider_error",
-        ...(process.env.NODE_ENV === "development" ? { details: msg } : {}),
+        ...(clientDetails ? { details: clientDetails } : process.env.NODE_ENV === "development" ? { details: msg } : {}),
       },
       { status: 502 },
     );
