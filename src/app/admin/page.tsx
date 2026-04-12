@@ -39,20 +39,35 @@ export default function AdminPage() {
   const [bDate, setBDate] = useState("");
   const [bNote, setBNote] = useState("");
 
-  const load = useCallback(async () => {
-    const [sRes, bRes] = await Promise.all([
-      fetch("/api/admin/settings", { credentials: "include" }),
-      fetch("/api/admin/blackouts", { credentials: "include" }),
-    ]);
-    if (sRes.status === 401 || bRes.status === 401) {
-      setAuthed(false);
+  const load = useCallback(async (opts?: { afterLogin?: boolean }) => {
+    const maxAttempts = opts?.afterLogin ? 8 : 1;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 50 * attempt));
+      }
+      const [sRes, bRes] = await Promise.all([
+        fetch("/api/admin/settings", { credentials: "include" }),
+        fetch("/api/admin/blackouts", { credentials: "include" }),
+      ]);
+
+      if (sRes.status === 401 || bRes.status === 401) {
+        if (opts?.afterLogin && attempt < maxAttempts - 1) {
+          continue;
+        }
+        setAuthed(false);
+        if (opts?.afterLogin) {
+          setMsg("A sessão não foi aplicada a tempo. Atualize a página e entre de novo.");
+        }
+        return;
+      }
+
+      setAuthed(true);
+      if (sRes.ok) setSettings((await sRes.json()) as Settings);
+      if (bRes.ok) {
+        const j = (await bRes.json()) as { blackouts: Blackout[] };
+        setBlackouts(j.blackouts);
+      }
       return;
-    }
-    setAuthed(true);
-    if (sRes.ok) setSettings((await sRes.json()) as Settings);
-    if (bRes.ok) {
-      const j = (await bRes.json()) as { blackouts: Blackout[] };
-      setBlackouts(j.blackouts);
     }
   }, []);
 
@@ -92,7 +107,7 @@ export default function AdminPage() {
       return;
     }
     setPassword("");
-    await load();
+    await load({ afterLogin: true });
   }
 
   async function logout() {

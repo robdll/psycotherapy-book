@@ -15,10 +15,12 @@ function getSecret() {
 
 /** Options for `NextResponse.cookies.set` (Route Handlers); do not use `cookies().set` there — it often does not attach Set-Cookie. */
 export function adminSessionCookieBase(): Omit<ResponseCookie, "name" | "value"> {
+  const isProdLike =
+    process.env.NODE_ENV === "production" || process.env.VERCEL === "1" || process.env.VERCEL_ENV != null;
   return {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isProdLike,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   };
@@ -37,7 +39,7 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   const token = jar.get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return false;
   try {
-    await jwtVerify(token, getSecret());
+    await jwtVerify(token, getSecret(), { clockTolerance: "120s" });
     return true;
   } catch {
     return false;
