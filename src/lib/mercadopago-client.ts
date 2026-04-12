@@ -22,7 +22,10 @@ export async function createPixPaymentForBooking(params: {
   /** Digits-only CPF (11), optional — some MP flows fail identity checks when CPF is sent. */
   clientCpf: string;
   description: string;
-  /** ISO datetime when PIX offer expires. Omit to use MP default (24h for PIX in BR). */
+  /**
+   * ISO8601 with numeric offset in the seller timezone, e.g. `2024-09-10T20:40:00-03:00`.
+   * Must be 30 min–30 days from “now” (MP). Omit only if you intentionally want MP’s default.
+   */
   dateOfExpiration?: string;
   /** Do not send `payer.identification` (retry path after “Financial Identity” errors). */
   omitIdentification?: boolean;

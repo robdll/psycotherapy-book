@@ -57,6 +57,12 @@ export async function POST(req: Request) {
   });
 
   const description = `Sessão de psicoterapia — ${formatInTimeZone(startAt, settings.timezone, "dd/MM/yyyy HH:mm")}`;
+  /** MP BR: ISO8601 with offset, e.g. `2024-09-10T20:40:00-03:00` — entre 30 min e 30 dias (doc + suporte). */
+  const dateOfExpiration = formatInTimeZone(
+    addMinutes(new Date(), 45),
+    settings.timezone,
+    "yyyy-MM-dd'T'HH:mm:ssxxx",
+  );
 
   let pix: Awaited<ReturnType<typeof createPixPaymentForBooking>>;
   try {
@@ -67,6 +73,7 @@ export async function POST(req: Request) {
       clientName,
       clientCpf,
       description,
+      dateOfExpiration,
     });
   } catch (e1) {
     const msg1 = formatMercadoPagoError(e1);
@@ -86,6 +93,7 @@ export async function POST(req: Request) {
           clientName,
           clientCpf,
           description,
+          dateOfExpiration,
           omitIdentification: true,
           idempotencyKey: `${booking.id}:noid`,
         });
