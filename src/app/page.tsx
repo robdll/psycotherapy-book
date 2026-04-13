@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HomeBookingCta } from "@/components/HomeBookingCta";
 
 export default function Home() {
   return (
@@ -15,12 +16,7 @@ export default function Home() {
         </p>
       </div>
       <div className="flex flex-col gap-3">
-        <Link
-          href="/book"
-          className="inline-flex w-fit items-center justify-center rounded-md border border-gold/50 bg-gold px-5 py-2.5 text-sm font-semibold text-navy-950 shadow-sm transition hover:border-gold-hover hover:bg-gold-hover"
-        >
-          Ver horários disponíveis
-        </Link>
+        <HomeBookingCta />
         <Link
           href="/privacidade"
           className="w-fit text-xs text-parchment/50 underline decoration-gold/35 underline-offset-4 transition hover:text-parchment/75 hover:decoration-gold/55"

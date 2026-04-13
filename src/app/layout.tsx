@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Source_Sans_3 } from "next/font/google";
+import { AnalyticsConsentBanner } from "@/components/AnalyticsConsentBanner";
+import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
@@ -26,8 +28,11 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${playfair.variable} ${sourceSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">{children}</div>
+        <AnalyticsProvider>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col">{children}</div>
+          <AnalyticsConsentBanner />
+        </AnalyticsProvider>
       </body>
     </html>
   );

@@ -11,6 +11,8 @@ model Booking {
   id                    String   @id @default(cuid()) @map("_id")
   clientName            String
   clientEmail           String
+  /// Optional client session id for analytics (no PII).
+  analyticsSessionId    String?
   startAt               DateTime
   endAt                 DateTime
   /// PENDING_PAYMENT | CONFIRMED | CANCELLED | EXPIRED

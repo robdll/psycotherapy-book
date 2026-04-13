@@ -9,6 +9,8 @@ import { formatMercadoPagoError, mercadoPagoErrorForClient } from "@/lib/mercado
 import { getAvailabilitySettings } from "@/lib/settings";
 import { createBookingSchema } from "@/lib/validation";
 import { computeOpenSlots } from "@/lib/open-slots";
+import { clientIpFromHeaders } from "@/lib/analytics/request-meta";
+import { emitBookingPixCreatedAnalytics } from "@/lib/analytics/booking-lifecycle";
 
 export async function POST(req: Request) {
   const json = await req.json().catch(() => null);
@@ -17,7 +19,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_body", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { clientName, clientEmail, clientCpf, startAt: startStr, endAt: endStr } = parsed.data;
+  const { clientName, clientEmail, clientCpf, analyticsSessionId, startAt: startStr, endAt: endStr } = parsed.data;
   const startAt = new Date(startStr);
   const endAt = new Date(endStr);
 
@@ -49,6 +51,7 @@ export async function POST(req: Request) {
     data: {
       clientName,
       clientEmail,
+      ...(analyticsSessionId ? { analyticsSessionId } : {}),
       startAt,
       endAt,
       status: BookingStatus.PENDING_PAYMENT,
@@ -156,6 +159,17 @@ export async function POST(req: Request) {
   await prisma.booking.update({
     where: { id: booking.id },
     data: { mercadoPagoPaymentId: pix.paymentId },
+  });
+
+  const hdrs = req.headers;
+  const ip = clientIpFromHeaders(hdrs);
+  const ua = hdrs.get("user-agent");
+  void emitBookingPixCreatedAnalytics({
+    bookingId: booking.id,
+    amountCents: booking.amountCents,
+    analyticsSessionId: analyticsSessionId ?? null,
+    ip,
+    userAgent: ua,
   });
 
   return NextResponse.json({

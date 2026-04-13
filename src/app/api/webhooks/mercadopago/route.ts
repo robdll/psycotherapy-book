@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyMercadoPagoWebhookSignature } from "@/lib/mercadopago-client";
+import { clientIpFromHeaders } from "@/lib/analytics/request-meta";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -26,7 +27,11 @@ export async function POST(req: NextRequest) {
   }
 
   const { tryFinalizeFromMercadoPagoPaymentId } = await import("@/lib/booking-mp-sync");
-  const res = await tryFinalizeFromMercadoPagoPaymentId(paymentId);
+  const requestContext = {
+    clientIp: clientIpFromHeaders(req.headers),
+    userAgent: req.headers.get("user-agent"),
+  };
+  const res = await tryFinalizeFromMercadoPagoPaymentId(paymentId, requestContext);
   if (!res.ok && res.reason !== "payment_not_approved") {
     console.error("[webhook] finalize issue", paymentId, res);
   } else if (!res.ok && res.reason === "payment_not_approved") {

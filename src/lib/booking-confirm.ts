@@ -4,10 +4,12 @@ import { getPaymentById } from "@/lib/mercadopago-client";
 import { createMeetEvent, isGoogleConnected } from "@/lib/google-calendar";
 import { getAvailabilitySettings } from "@/lib/settings";
 import { overlaps } from "@/lib/availability";
+import { emitBookingConfirmedAnalytics } from "@/lib/analytics/booking-lifecycle";
 
 export async function finalizeBookingAfterApprovedPayment(params: {
   bookingId: string;
   paymentId: string;
+  requestContext?: { clientIp: string | null; userAgent: string | null };
 }): Promise<{ ok: true } | { ok: false; reason: string }> {
   const booking = await prisma.booking.findUnique({ where: { id: params.bookingId } });
   if (!booking) return { ok: false, reason: "booking_not_found" };
@@ -55,6 +57,7 @@ export async function finalizeBookingAfterApprovedPayment(params: {
       mercadoPagoPaymentId: params.paymentId,
     },
   });
+  const newlyConfirmed = claimed.count > 0;
 
   if (claimed.count === 0) {
     const again = await prisma.booking.findUnique({ where: { id: params.bookingId } });
@@ -94,6 +97,21 @@ export async function finalizeBookingAfterApprovedPayment(params: {
       });
       throw err;
     }
+  }
+
+  if (newlyConfirmed) {
+    const row = await prisma.booking.findUnique({
+      where: { id: booking.id },
+      select: { analyticsSessionId: true, amountCents: true },
+    });
+    await emitBookingConfirmedAnalytics({
+      bookingId: booking.id,
+      paymentId: params.paymentId,
+      amountCents: row?.amountCents ?? booking.amountCents,
+      analyticsSessionId: row?.analyticsSessionId ?? null,
+      ip: params.requestContext?.clientIp,
+      userAgent: params.requestContext?.userAgent,
+    });
   }
 
   return { ok: true };

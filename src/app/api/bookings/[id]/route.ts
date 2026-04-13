@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BookingStatus } from "@/lib/booking-status";
 import { tryFinalizeFromMercadoPagoPaymentId } from "@/lib/booking-mp-sync";
+import { clientIpFromHeaders } from "@/lib/analytics/request-meta";
 
 /**
  * Public read + sync: if PIX was approved in MP, finalize booking (same as webhook).
  * Used by /book polling so the UI can show confirmation without a push channel.
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   if (!id || id.length > 40) {
     return NextResponse.json({ error: "invalid_id" }, { status: 400 });
@@ -19,7 +20,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   if (booking.status === BookingStatus.PENDING_PAYMENT && booking.mercadoPagoPaymentId) {
-    await tryFinalizeFromMercadoPagoPaymentId(booking.mercadoPagoPaymentId);
+    const requestContext = {
+      clientIp: clientIpFromHeaders(req.headers),
+      userAgent: req.headers.get("user-agent"),
+    };
+    await tryFinalizeFromMercadoPagoPaymentId(booking.mercadoPagoPaymentId, requestContext);
     booking = await prisma.booking.findUniqueOrThrow({ where: { id } });
   }
 

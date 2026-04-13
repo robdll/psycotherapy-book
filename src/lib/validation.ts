@@ -1,9 +1,15 @@
 import { z } from "zod";
 import { isValidCpf, normalizeCpf } from "@/lib/cpf";
 
+const analyticsSessionIdSchema = z.preprocess(
+  (v) => (v === null || v === undefined || v === "" ? undefined : String(v)),
+  z.string().max(80).regex(/^[\w.-]+$/, "session_id inválido").optional(),
+);
+
 export const createBookingSchema = z.object({
   clientName: z.string().min(2).max(120),
   clientEmail: z.string().email().max(200),
+  analyticsSessionId: analyticsSessionIdSchema,
   clientCpf: z.preprocess(
     (v) => (v === undefined || v === null ? "" : String(v)),
     z

@@ -76,9 +76,32 @@ You can still **create PIX and pay** locally if the access token works; only the
 2. MP webhook → payment `approved` → booking `CONFIRMED` and Calendar event with Meet.
 3. Rare edge case after payment: booking may become `CANCELLED` (manual handling / refunds are outside this minimal scope).
 
-## Instagram
+## Instagram and Meta campaigns
 
-Use the public `/book` URL in the bio or stories.
+Use your **canonical** site URL (same host as `NEXT_PUBLIC_APP_URL`) and add **UTM parameters** so traffic is identifiable in analytics and spreadsheets. Meta may also add `fbclid` automatically on ad clicks.
+
+**Bio or organic post (example — replace host and campaign name):**
+
+- Landing: `{NEXT_PUBLIC_APP_URL}/?utm_source=instagram&utm_medium=social&utm_campaign=agenda_2026`
+- Straight to booking: `{NEXT_PUBLIC_APP_URL}/book?utm_source=instagram&utm_medium=social&utm_campaign=agenda_2026`
+
+**Paid ads (example):**
+
+- `{NEXT_PUBLIC_APP_URL}/?utm_source=instagram&utm_medium=paid_social&utm_campaign=meta_agenda_abril&utm_content=feed_carrossel`
+
+Optional short links (bit.ly, etc.) should **forward** these query parameters unchanged.
+
+See **Analytics** below for funnel tracking (PostHog / Meta) and env vars.
+
+## Analytics
+
+Optional **PostHog** (funnels, session replay) and **Meta Pixel + Conversions API** (ads measurement). Events are documented in [docs/analytics-events.md](docs/analytics-events.md). Non-essential scripts load only after the user accepts cookies on the banner (see `/privacidade`).
+
+Set in `.env` (see `.env.example`):
+
+- `NEXT_PUBLIC_POSTHOG_KEY` — PostHog project API key (client + server).
+- `NEXT_PUBLIC_POSTHOG_HOST` — defaults to `https://us.i.posthog.com` (EU: `https://eu.i.posthog.com`).
+- `META_PIXEL_ID` + `META_CAPI_ACCESS_TOKEN` — optional Meta Pixel (browser) and server Purchase events on confirmed bookings.
 
 ## Privacy
 

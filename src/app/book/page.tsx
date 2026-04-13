@@ -2,7 +2,10 @@
 
 import { addDays } from "date-fns";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAnalytics } from "@/components/AnalyticsProvider";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/constants";
+import { getOrCreateSessionId } from "@/lib/analytics/attribution-client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Slot = { start: string; end: string };
 
@@ -16,6 +19,7 @@ const fmt = new Intl.DateTimeFormat("pt-BR", {
 });
 
 export default function BookPage() {
+  const { capture } = useAnalytics();
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +37,11 @@ export default function BookPage() {
   } | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
+  const formStartedName = useRef(false);
+  const formStartedEmail = useRef(false);
+  const cpfTouchedReported = useRef(false);
+  const confirmedClientReported = useRef(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -46,17 +55,24 @@ export default function BookPage() {
       const data = (await res.json()) as { slots: Slot[] };
       setSlots(data.slots);
     } catch {
-      setError("Não foi possível carregar os horários. Tente novamente.");
+      const msg = "Não foi possível carregar os horários. Tente novamente.";
+      setError(msg);
+      capture(ANALYTICS_EVENTS.bookingError, { error_code: "availability_load_failed" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [capture]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void load();
     });
   }, [load]);
+
+  useEffect(() => {
+    if (loading) return;
+    capture(ANALYTICS_EVENTS.bookPageView, { slot_count: slots.length });
+  }, [loading, slots.length, capture]);
 
   useEffect(() => {
     if (!bookingId || paymentConfirmed) return;
@@ -75,6 +91,20 @@ export default function BookPage() {
     return () => clearInterval(id);
   }, [bookingId, paymentConfirmed]);
 
+  useEffect(() => {
+    if (!paymentConfirmed || confirmedClientReported.current || !bookingId) return;
+    confirmedClientReported.current = true;
+    capture(ANALYTICS_EVENTS.bookingConfirmed, { booking_id: bookingId });
+  }, [paymentConfirmed, bookingId, capture]);
+
+  const pickSlot = useCallback(
+    (s: Slot) => {
+      setSelected(s);
+      capture(ANALYTICS_EVENTS.slotSelected, { slot_start: s.start });
+    },
+    [capture],
+  );
+
   const slotLabel = useMemo(() => {
     if (!selected) return "";
     return fmt.format(new Date(selected.start));
@@ -83,9 +113,12 @@ export default function BookPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
+    const cpfDigits = cpf.replace(/\D/g, "");
+    capture(ANALYTICS_EVENTS.checkoutSubmit, { has_cpf: cpfDigits.length === 11 });
     setSubmitting(true);
     setError(null);
     try {
+      const sessionId = getOrCreateSessionId();
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,6 +128,7 @@ export default function BookPage() {
           clientCpf: cpf,
           startAt: selected.start,
           endAt: selected.end,
+          ...(sessionId ? { analyticsSessionId: sessionId } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -103,20 +137,33 @@ export default function BookPage() {
           const flat = data.details as { fieldErrors?: Record<string, string[]> };
           const cpfErr = flat.fieldErrors?.clientCpf?.[0];
           setError(cpfErr ?? "Confira os dados do formulário e tente de novo.");
+          capture(ANALYTICS_EVENTS.bookingError, { error_code: "invalid_body", http_status: res.status });
         } else if (data.error === "slot_unavailable" || data.error === "slot_reserved") {
           setError("Esse horário acabou de ser reservado. Escolha outro.");
+          capture(ANALYTICS_EVENTS.bookingError, {
+            error_code: data.error === "slot_unavailable" ? "slot_unavailable" : "slot_reserved",
+            http_status: res.status,
+          });
         } else if (data.error === "payment_provider_error" && typeof data.details === "string") {
           setError(`Pagamento: ${data.details}`);
+          capture(ANALYTICS_EVENTS.bookingError, { error_code: "payment_provider_error", http_status: res.status });
         } else {
           setError("Não foi possível criar o pagamento. Verifique os dados ou tente mais tarde.");
+          capture(ANALYTICS_EVENTS.bookingError, {
+            error_code: typeof data.error === "string" ? data.error : "booking_unknown",
+            http_status: res.status,
+          });
         }
         await load();
         return;
       }
-      setBookingId(typeof data.bookingId === "string" ? data.bookingId : null);
+      const bid = typeof data.bookingId === "string" ? data.bookingId : null;
+      capture(ANALYTICS_EVENTS.pixPresented, { booking_id: bid });
+      setBookingId(bid);
       setPix(data.pix);
     } catch {
       setError("Erro de rede. Tente novamente.");
+      capture(ANALYTICS_EVENTS.bookingError, { error_code: "network_error" });
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +173,7 @@ export default function BookPage() {
     "mt-1 w-full rounded-md border border-gold/30 bg-parchment px-3 py-2 text-sm text-parchment-ink placeholder:text-parchment-ink/40 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/50";
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 pb-28">
       <h1 className="font-display text-2xl font-semibold tracking-tight text-parchment">Reservar sessão</h1>
       <p className="mt-2 max-w-xl text-sm text-parchment/75">
         O horário só é confirmado após o pagamento PIX ser aprovado. Você receberá o convite por e-mail com o Google Meet.
@@ -144,11 +191,42 @@ export default function BookPage() {
             <h2 className="text-sm font-semibold text-gold-dim">1. Seus dados</h2>
             <div>
               <label className="block text-xs font-medium text-parchment/70">Nome completo</label>
-              <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+              <input
+                required
+                value={name}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setName(v);
+                  if (v.length > 0 && !formStartedName.current) {
+                    formStartedName.current = true;
+                    capture(ANALYTICS_EVENTS.formStarted, { field: "name" });
+                  }
+                }}
+                onBlur={() => {
+                  if (name.trim()) capture(ANALYTICS_EVENTS.formFieldCompleted, { field: "name" });
+                }}
+                className={inputClass}
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-parchment/70">E-mail (para o convite)</label>
-              <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEmail(v);
+                  if (v.length > 0 && !formStartedEmail.current) {
+                    formStartedEmail.current = true;
+                    capture(ANALYTICS_EVENTS.formStarted, { field: "email" });
+                  }
+                }}
+                onBlur={() => {
+                  if (email.trim()) capture(ANALYTICS_EVENTS.formFieldCompleted, { field: "email" });
+                }}
+                className={inputClass}
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-parchment/70">CPF (opcional)</label>
@@ -156,7 +234,14 @@ export default function BookPage() {
                 inputMode="numeric"
                 autoComplete="off"
                 value={cpf}
-                onChange={(e) => setCpf(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setCpf(v);
+                  if (v.length > 0 && !cpfTouchedReported.current) {
+                    cpfTouchedReported.current = true;
+                    capture(ANALYTICS_EVENTS.formCpfTouched);
+                  }
+                }}
                 className={inputClass}
               />
             </div>
@@ -176,7 +261,7 @@ export default function BookPage() {
                     <li key={s.start}>
                       <button
                         type="button"
-                        onClick={() => setSelected(s)}
+                        onClick={() => pickSlot(s)}
                         className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
                           active
                             ? "border border-gold/50 bg-gold text-navy-950"
@@ -216,6 +301,10 @@ export default function BookPage() {
               setPix(null);
               setBookingId(null);
               setPaymentConfirmed(false);
+              confirmedClientReported.current = false;
+              formStartedName.current = false;
+              formStartedEmail.current = false;
+              cpfTouchedReported.current = false;
               setSelected(null);
               void load();
             }}
