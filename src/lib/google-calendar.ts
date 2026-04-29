@@ -52,39 +52,59 @@ export async function saveTokensFromCode(code: string) {
 async function getAuthorizedClient() {
   const row = await prisma.therapistGoogleToken.findUnique({ where: { id: "default" } });
   if (!row) return null;
-  const oauth2 = getOAuthClient();
+
+  let oauth2: ReturnType<typeof getOAuthClient>;
+  try {
+    oauth2 = getOAuthClient();
+  } catch (err) {
+    console.error("[google-calendar] OAuth client unavailable (check GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET):", err);
+    return null;
+  }
+
   oauth2.setCredentials({
     access_token: row.accessToken,
     refresh_token: row.refreshToken,
     expiry_date: row.expiryDateMs,
   });
+
   if (row.expiryDateMs < Date.now() + 60_000) {
-    const { credentials } = await oauth2.refreshAccessToken();
-    if (!credentials.access_token) return null;
-    await prisma.therapistGoogleToken.update({
-      where: { id: "default" },
-      data: {
-        accessToken: credentials.access_token,
-        expiryDateMs: credentials.expiry_date ?? Date.now() + 3600_000,
-      },
-    });
-    oauth2.setCredentials(credentials);
+    try {
+      const { credentials } = await oauth2.refreshAccessToken();
+      if (!credentials.access_token) return null;
+      await prisma.therapistGoogleToken.update({
+        where: { id: "default" },
+        data: {
+          accessToken: credentials.access_token,
+          expiryDateMs: credentials.expiry_date ?? Date.now() + 3600_000,
+        },
+      });
+      oauth2.setCredentials(credentials);
+    } catch (err) {
+      console.error("[google-calendar] refreshAccessToken failed (reconnect Google in admin):", err);
+      return null;
+    }
   }
+
   return oauth2;
 }
 
 export async function fetchFreeBusy(params: { timeMin: Date; timeMax: Date }): Promise<calendar_v3.Schema$FreeBusyResponse | null> {
-  const auth = await getAuthorizedClient();
-  if (!auth) return null;
-  const calendar = google.calendar({ version: "v3", auth });
-  const res = await calendar.freebusy.query({
-    requestBody: {
-      timeMin: params.timeMin.toISOString(),
-      timeMax: params.timeMax.toISOString(),
-      items: [{ id: "primary" }],
-    },
-  });
-  return res.data;
+  try {
+    const auth = await getAuthorizedClient();
+    if (!auth) return null;
+    const calendar = google.calendar({ version: "v3", auth });
+    const res = await calendar.freebusy.query({
+      requestBody: {
+        timeMin: params.timeMin.toISOString(),
+        timeMax: params.timeMax.toISOString(),
+        items: [{ id: "primary" }],
+      },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("[google-calendar] freebusy.query failed:", err);
+    return null;
+  }
 }
 
 export async function createMeetEvent(params: {
